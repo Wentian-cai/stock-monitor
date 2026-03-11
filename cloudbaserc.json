@@ -1,0 +1,16 @@
+{
+  "version": "2.0",
+  "envId": "bwcbwcppi-2ghzbqpj67d2488e",
+  "functions": [
+    {
+      "name": "deploy_package",
+      "triggers": [
+        {
+          "name": "stock-timer",
+          "type": "timer",
+          "config": "0 */5 * * * * *"
+        }
+      ]
+    }
+  ]
+}

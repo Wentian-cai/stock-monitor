@@ -1,12 +1,6 @@
-"""
-简化版股票监控脚本 - 适合GitHub Actions等云端环境
-不包含邮件功能，专注于数据获取和记录
-"""
-
 import requests
 import json
 from datetime import datetime
-import sys
 
 # 监控的股票
 STOCKS = {
@@ -18,19 +12,18 @@ STOCKS = {
     '000988': {'name': '华工科技', 'category': '下游'}
 }
 
-# 记录文件
-LOG_FILE = 'stock_monitor.log'
-ALERTS_FILE = 'alerts.json'
-
 # 价格变化阈值
 THRESHOLD = 3.0
 
-# 记录上一次价格（每次运行重新初始化，适合定时任务）
-last_prices = {}
+# Server酱 SendKey（需要替换为你的SendKey）
+SCT_SENDKEY = "oFkBjwdAhVO34o9bP8tfDLqHpD28"
+
+# 是否启用微信通知
+ENABLE_WECHAT_NOTIFY = True
 
 
 def get_stock_price(stock_code):
-    """获取股票价格（使用新浪财经API）"""
+    """获取股票价格"""
     try:
         if stock_code.startswith('6'):
             url = f'http://hq.sinajs.cn/list=sh{stock_code}'
@@ -67,61 +60,88 @@ def get_stock_price(stock_code):
         return None
 
     except Exception as e:
-        print(f"获取 {stock_code} 价格失败: {str(e)}", file=sys.stderr)
+        print(f"获取 {stock_code} 价格失败: {str(e)}")
         return None
 
 
-def log_message(message):
-    """记录日志到文件和控制台"""
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    log_line = f"[{timestamp}] {message}"
-
-    print(log_line)
-
-    try:
-        with open(LOG_FILE, 'a', encoding='utf-8') as f:
-            f.write(log_line + '\n')
-    except Exception as e:
-        print(f"写入日志失败: {str(e)}", file=sys.stderr)
-
-
 def check_price_change(stock_code, current_data):
-    """检查价格变化（基于昨日收盘价）"""
-    current_price = current_data['price']
+    """检查价格变化"""
     change_pct = current_data['change_pct']
 
-    # 检查相对于昨日收盘价的变化
     if abs(change_pct) >= THRESHOLD:
-        return {
+        alert = {
             'stock_code': stock_code,
             'stock_name': current_data['name'],
             'category': STOCKS[stock_code]['category'],
-            'current_price': current_price,
+            'current_price': current_data['price'],
             'change_pct': change_pct,
             'direction': '上涨' if change_pct > 0 else '下跌',
             'timestamp': current_data['timestamp']
         }
+        
+        # 发送微信消息提醒
+        if ENABLE_WECHAT_NOTIFY:
+            send_wechat_notification(alert)
+        
+        return alert
 
     return None
 
 
-def save_alert(alert):
-    """保存提醒记录"""
+def send_wechat_notification(alert):
+    """使用 Server酱发送微信通知"""
     try:
-        with open(ALERTS_FILE, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(alert, ensure_ascii=False) + '\n')
+        if SCT_SENDKEY == "YOUR_SENDKEY_HERE":
+            print("⚠️  请先配置 SCT_SENDKEY")
+            return
+        
+        url = f"https://sctapi.ftqq.com/{SCT_SENDKEY}.send"
+        
+        # 构建消息内容
+        emoji = "📈" if alert['direction'] == "上涨" else "📉"
+        
+        message_body = f"""
+【{emoji} 股价波动提醒】
+
+📊 股票名称：{alert['stock_name']}
+🏷️  所属分类：{alert['category']}
+💰 当前价格：¥{alert['current_price']:.2f}
+📈 涨跌幅：{alert['direction']} {abs(alert['change_pct']):.2f}%
+🕐 时间：{alert['timestamp']}
+
+---
+薄膜铌酸锂概念股监控
+        """.strip()
+        
+        data = {
+            'title': f"{alert['stock_name']} {alert['direction']} {abs(alert['change_pct']):.2f}%",
+            'desp': message_body
+        }
+        
+        response = requests.post(url, data=data)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('code') == 0:
+                print(f"✅ 微信通知已发送: {alert['stock_name']}")
+            else:
+                print(f"❌ 微信通知发送失败: {result.get('message')}")
+        else:
+            print(f"❌ 请求失败: {response.status_code}")
+            
     except Exception as e:
-        log_message(f"保存提醒记录失败: {str(e)}")
+        print(f"❌ 发送微信消息失败: {str(e)}")
 
 
-def main():
+def main(event):
     """主函数"""
     print("=" * 80)
-    print("薄膜铌酸锂概念股监控 - 云端版本")
+    print("薄膜铌酸锂概念股监控 - 微信云开发版本（带消息推送）")
     print("=" * 80)
     print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"监控股票数: {len(STOCKS)}")
     print(f"价格阈值: {THRESHOLD}%")
+    print(f"微信通知: {'启用' if ENABLE_WECHAT_NOTIFY else '禁用'}")
     print("=" * 80)
 
     results = {}
@@ -131,43 +151,30 @@ def main():
         stock_name = stock_info['name']
         category = stock_info['category']
 
-        # 获取股价
         stock_data = get_stock_price(stock_code)
 
         if stock_data:
             results[stock_code] = stock_data
 
-            # 记录数据
             change_str = f"{stock_data['change_pct']:+.2f}%"
             if stock_data['change_pct'] > 0:
                 change_str = f"📈 {change_str}"
             elif stock_data['change_pct'] < 0:
                 change_str = f"📉 {change_str}"
 
-            log_message(
-                f"{stock_name}({stock_code}) [{category}]: "
-                f"¥{stock_data['price']:.2f} {change_str}"
-            )
+            print(f"{stock_name}({stock_code}) [{category}]: ¥{stock_data['price']:.2f} {change_str}")
 
-            # 检查是否需要提醒
             alert = check_price_change(stock_code, stock_data)
             if alert:
                 alerts.append(alert)
-                log_message(
-                    f"⚠️  提醒: {alert['stock_name']} "
-                    f"{alert['direction']} {abs(alert['change_pct']):.2f}%"
-                )
-                save_alert(alert)
 
         else:
-            log_message(f"❌ {stock_name}({stock_code}): 获取数据失败")
+            print(f"❌ {stock_name}({stock_code}): 获取数据失败")
 
-    # 打印汇总
     print("\n" + "=" * 80)
     print("监控汇总")
     print("=" * 80)
 
-    # 按板块分组
     by_category = {}
     for code, data in results.items():
         category = STOCKS[code]['category']
@@ -186,7 +193,6 @@ def main():
 
             print(f"  {stock['name']}({stock['code']}): ¥{stock['price']:.2f} {change_str}")
 
-    # 提醒汇总
     if alerts:
         print(f"\n⚠️  本次运行触发 {len(alerts)} 个提醒:")
         for alert in alerts:
@@ -199,8 +205,10 @@ def main():
     print(f"成功获取: {len(results)}/{len(STOCKS)}")
     print("=" * 80)
 
-    return 0 if results else 1
-
-
-if __name__ == '__main__':
-    sys.exit(main())
+    return {
+        'success': True,
+        'success_count': len(results),
+        'total_count': len(STOCKS),
+        'alerts': alerts,
+        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    }

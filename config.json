@@ -1,0 +1,10 @@
+{
+  "permissions": {},
+  "triggers": [
+    {
+      "name": "stock-timer",
+      "type": "timer",
+      "config": "0 */5 * * * * *"
+    }
+  ]
+}

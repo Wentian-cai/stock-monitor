@@ -1,9 +1,4 @@
-"""
-股票监控脚本 - 无需外部依赖
-使用 Python 内置的 urllib 库
-"""
-import urllib.request
-import urllib.error
+import requests
 import json
 from datetime import datetime
 
@@ -20,40 +15,11 @@ STOCKS = {
 # 价格变化阈值
 THRESHOLD = 3.0
 
-# Server酱 SendKey
+# Server酱 SendKey（需要替换为你的SendKey）
 SCT_SENDKEY = "oFkBjwdAhVO34o9bP8tfDLqHpD28"
 
 # 是否启用微信通知
 ENABLE_WECHAT_NOTIFY = True
-
-
-def fetch_url(url):
-    """使用 urllib 获取网页内容"""
-    try:
-        req = urllib.request.Request(url)
-        req.add_header('User-Agent', 'Mozilla/5.0')
-        with urllib.request.urlopen(req, timeout=10) as response:
-            content = response.read().decode('gbk')
-        return content
-    except urllib.error.URLError as e:
-        print(f"获取 URL 失败: {e}")
-        return None
-    except Exception as e:
-        print(f"发生错误: {e}")
-        return None
-
-
-def send_post_request(url, data):
-    """发送 POST 请求"""
-    try:
-        encoded_data = urllib.parse.urlencode(data).encode('utf-8')
-        req = urllib.request.Request(url, data=encoded_data, method='POST')
-        with urllib.request.urlopen(req, timeout=10) as response:
-            content = response.read().decode('utf-8')
-        return content
-    except Exception as e:
-        print(f"发送 POST 请求失败: {e}")
-        return None
 
 
 def get_stock_price(stock_code):
@@ -64,30 +30,32 @@ def get_stock_price(stock_code):
         else:
             url = f'http://hq.sinajs.cn/list=sz{stock_code}'
 
-        content = fetch_url(url)
-        if not content:
-            return None
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=10)
+        response.encoding = 'gbk'
 
-        if 'var hq_str_' in content:
-            info_str = content.split('"')[1]
-            parts = info_str.split(',')
+        if response.status_code == 200:
+            data = response.text
+            if 'var hq_str_' in data:
+                info_str = data.split('"')[1]
+                parts = info_str.split(',')
 
-            if len(parts) > 3 and parts[3]:
-                stock_name = parts[0]
-                current_price = float(parts[3])
-                prev_close = float(parts[2])
+                if len(parts) > 3 and parts[3]:
+                    stock_name = parts[0]
+                    current_price = float(parts[3])
+                    prev_close = float(parts[2])
 
-                if current_price > 0:
-                    change_pct = ((current_price - prev_close) / prev_close) * 100
+                    if current_price > 0:
+                        change_pct = ((current_price - prev_close) / prev_close) * 100
 
-                    return {
-                        'code': stock_code,
-                        'name': stock_name,
-                        'price': current_price,
-                        'prev_close': prev_close,
-                        'change_pct': change_pct,
-                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    }
+                        return {
+                            'code': stock_code,
+                            'name': stock_name,
+                            'price': current_price,
+                            'prev_close': prev_close,
+                            'change_pct': change_pct,
+                            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        }
 
         return None
 
@@ -110,11 +78,11 @@ def check_price_change(stock_code, current_data):
             'direction': '上涨' if change_pct > 0 else '下跌',
             'timestamp': current_data['timestamp']
         }
-
+        
         # 发送微信消息提醒
         if ENABLE_WECHAT_NOTIFY:
             send_wechat_notification(alert)
-
+        
         return alert
 
     return None
@@ -126,12 +94,12 @@ def send_wechat_notification(alert):
         if SCT_SENDKEY == "YOUR_SENDKEY_HERE":
             print("⚠️  请先配置 SCT_SENDKEY")
             return
-
+        
         url = f"https://sctapi.ftqq.com/{SCT_SENDKEY}.send"
-
+        
         # 构建消息内容
         emoji = "📈" if alert['direction'] == "上涨" else "📉"
-
+        
         message_body = f"""
 【{emoji} 股价波动提醒】
 
@@ -144,27 +112,31 @@ def send_wechat_notification(alert):
 ---
 薄膜铌酸锂概念股监控
         """.strip()
-
+        
         data = {
             'title': f"{alert['stock_name']} {alert['direction']} {abs(alert['change_pct']):.2f}%",
             'desp': message_body
         }
-
-        content = send_post_request(url, data)
-
-        if content:
-            print(f"✅ 微信通知已发送: {alert['stock_name']}")
+        
+        response = requests.post(url, data=data)
+        
+        if response.status_code == 200:
+            result = response.json()
+            if result.get('code') == 0:
+                print(f"✅ 微信通知已发送: {alert['stock_name']}")
+            else:
+                print(f"❌ 微信通知发送失败: {result.get('message')}")
         else:
-            print(f"❌ 微信通知发送失败")
-
+            print(f"❌ 请求失败: {response.status_code}")
+            
     except Exception as e:
         print(f"❌ 发送微信消息失败: {str(e)}")
 
 
-def main():
+def main(event):
     """主函数"""
     print("=" * 80)
-    print("薄膜铌酸锂概念股监控")
+    print("薄膜铌酸锂概念股监控 - 微信云开发版本（带消息推送）")
     print("=" * 80)
     print(f"开始时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"监控股票数: {len(STOCKS)}")
@@ -240,7 +212,3 @@ def main():
         'alerts': alerts,
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
-
-
-if __name__ == '__main__':
-    main()
