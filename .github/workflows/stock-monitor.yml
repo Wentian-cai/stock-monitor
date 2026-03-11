@@ -1,4 +1,5 @@
-name: 薄膜铌酸锂概念股监控
+
+name: 股票监控
 
 on:
   schedule:
@@ -8,14 +9,14 @@ on:
     branches: [ main ]
 
 jobs:
-  stock_monitor:
+  stock-monitor:
     runs-on: ubuntu-latest
 
     steps:
     - name: 检出代码
-      uses: actions/checkout@v4
+      uses: actions/checkout@v3
 
-    - name: 设置Python环境
+    - name: 设置 Python 环境
       uses: actions/setup-python@v4
       with:
         python-version: '3.9'
@@ -23,12 +24,12 @@ jobs:
     - name: 安装依赖
       run: |
         python -m pip install --upgrade pip
-        pip install requests        
+        pip install requests
 
     - name: 运行股票监控
       run: |
         echo "=== 开始运行股票监控 ==="
-        python stock_monitor_simple.py        
+        python stock_monitor.py
 
     - name: 上传运行日志
       if: always()
@@ -37,5 +38,5 @@ jobs:
         name: monitor-log-${{ github.run_number }}
         path: |
           stock_monitor.log
-          alerts.json          
+          alerts.json
         retention-days: 30
