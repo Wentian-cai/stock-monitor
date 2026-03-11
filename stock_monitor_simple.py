@@ -24,12 +24,12 @@ ALERTS_FILE = 'alerts.json'
 # 价格变化阈值
 THRESHOLD = 3.0
 
-# 记录上一次价格（每次运行重新初始化，适合定时任务）
+# 记录上一次价格
 last_prices = {}
 
 
 def get_stock_price(stock_code):
-    """获取股票价格（使用新浪财经API）"""
+    """获取股票价格"""
     try:
         if stock_code.startswith('6'):
             url = f'http://hq.sinajs.cn/list=sh{stock_code}'
@@ -71,7 +71,7 @@ def get_stock_price(stock_code):
 
 
 def log_message(message):
-    """记录日志到文件和控制台"""
+    """记录日志"""
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     log_line = f"[{timestamp}] {message}"
 
@@ -85,18 +85,17 @@ def log_message(message):
 
 
 def check_price_change(stock_code, current_data):
-    """检查价格变化（基于昨日收盘价）"""
+    """检查价格变化"""
     current_price = current_data['price']
     change_pct = current_data['change_pct']
 
-    # 检查相对于昨日收盘价的变化
     if abs(change_pct) >= THRESHOLD:
         return {
             'stock_code': stock_code,
             'stock_name': current_data['name'],
             'category': STOCKS[stock_code]['category'],
             'current_price': current_price,
-            'change_pct': change_pct
+            'change_pct': change_pct,
             'direction': '上涨' if change_pct > 0 else '下跌',
             'timestamp': current_data['timestamp']
         }
