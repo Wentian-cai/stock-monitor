@@ -233,6 +233,22 @@ def main():
     print(f"成功获取: {len(results)}/{len(STOCKS)}")
     print("=" * 80)
 
+    # 保存日志到文件
+    with open('stock_monitor.log', 'w', encoding='utf-8') as f:
+        f.write(f"薄膜铌酸锂概念股监控\n")
+        f.write(f"时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"监控股票数: {len(STOCKS)}\n")
+        f.write(f"价格阈值: {THRESHOLD}%\n")
+        f.write(f"成功获取: {len(results)}/{len(STOCKS)}\n")
+        f.write(f"触发提醒: {len(alerts)}\n")
+        f.write("\n详细结果:\n")
+        for code, data in results.items():
+            f.write(f"{data['name']}({code}): ¥{data['price']:.2f} ({data['change_pct']:+.2f}%)\n")
+
+    # 保存提醒到 JSON 文件
+    with open('alerts.json', 'w', encoding='utf-8') as f:
+        json.dump(alerts, f, ensure_ascii=False, indent=2)
+
     return {
         'success': True,
         'success_count': len(results),
