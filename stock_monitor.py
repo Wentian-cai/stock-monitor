@@ -125,7 +125,11 @@ def send_wechat_notification(alert):
             print("⚠️  请先配置 SCT_SENDKEY")
             return
 
-        url = f"https://sctapi.ftqq.com/{SCT_SENDKEY}.send"
+        # 尝试多个 API 地址
+        api_urls = [
+            f"https://sctapi.ftqq.com/{SCT_SENDKEY}.send",
+            f"https://sc.ftqq.com/{SCT_SENDKEY}.send"
+        ]
 
         # 构建消息内容
         emoji = "📈" if alert['direction'] == "上涨" else "📉"
@@ -148,12 +152,18 @@ def send_wechat_notification(alert):
             'desp': message_body
         }
 
-        content = send_post_request(url, data)
+        # 尝试每个 API 地址
+        for url in api_urls:
+            print(f"尝试发送到: {url}")
+            content = send_post_request(url, data)
 
-        if content:
-            print(f"✅ 微信通知已发送: {alert['stock_name']}")
-        else:
-            print(f"❌ 微信通知发送失败")
+            if content:
+                print(f"✅ 微信通知已发送: {alert['stock_name']}")
+                return
+            else:
+                print(f"❌ {url} 发送失败，尝试下一个地址")
+
+        print(f"❌ 所有 API 地址均发送失败")
 
     except Exception as e:
         print(f"❌ 发送微信消息失败: {str(e)}")
