@@ -21,7 +21,7 @@ STOCKS = {
 THRESHOLD = 0.1
 
 # Server酱 SendKey
-SCT_SENDKEY = "oFkBjwdAhVO34o9bP8tfDLqHpD28"
+SCT_SENDKEY = "SCT322095Tc3K3I49Joj8VK32Cu1uAHZfw"
 
 # 是否启用微信通知
 ENABLE_WECHAT_NOTIFY = True
