@@ -17,8 +17,8 @@ STOCKS = {
     '000988': {'name': '华工科技', 'category': '下游'}
 }
 
-# 价格变化阈值
-THRESHOLD = 3.0
+# 价格变化阈值（设置为0.1%用于测试）
+THRESHOLD = 0.1
 
 # Server酱 SendKey
 SCT_SENDKEY = "oFkBjwdAhVO34o9bP8tfDLqHpD28"
@@ -100,24 +100,22 @@ def check_price_change(stock_code, current_data):
     """检查价格变化"""
     change_pct = current_data['change_pct']
 
-    if abs(change_pct) >= THRESHOLD:
-        alert = {
-            'stock_code': stock_code,
-            'stock_name': current_data['name'],
-            'category': STOCKS[stock_code]['category'],
-            'current_price': current_data['price'],
-            'change_pct': change_pct,
-            'direction': '上涨' if change_pct > 0 else '下跌',
-            'timestamp': current_data['timestamp']
-        }
+    # 测试模式：每次都发送通知（无论是否达到阈值）
+    alert = {
+        'stock_code': stock_code,
+        'stock_name': current_data['name'],
+        'category': STOCKS[stock_code]['category'],
+        'current_price': current_data['price'],
+        'change_pct': change_pct,
+        'direction': '上涨' if change_pct > 0 else '下跌',
+        'timestamp': current_data['timestamp']
+    }
 
-        # 发送微信消息提醒
-        if ENABLE_WECHAT_NOTIFY:
-            send_wechat_notification(alert)
+    # 发送微信消息提醒
+    if ENABLE_WECHAT_NOTIFY:
+        send_wechat_notification(alert)
 
-        return alert
-
-    return None
+    return alert
 
 
 def send_wechat_notification(alert):
